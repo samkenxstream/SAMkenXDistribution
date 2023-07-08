@@ -97,6 +97,14 @@ storage:
     accountname: accountname
     accountkey: base64encodedaccountkey
     container: containername
+    rootdirectory: /az/object/name/prefix
+    credentials:
+      type: client_secret
+      clientid: client_id_string
+      tenantid: tenant_id_string
+      secret: secret_string
+    copy_status_poll_max_retry: 10
+    copy_status_poll_delay: 100ms
   gcs:
     bucket: bucketname
     keyfile: /path/to/keyfile
@@ -153,7 +161,7 @@ storage:
     encrypt: optional enable server-side encryption
     encryptionkeyid: optional KMS key id for encryption
     secure: optional ssl setting
-    chunksize: optional size valye
+    chunksize: optional size value
     rootdirectory: optional root directory
   inmemory:  # This driver takes no parameters
   delete:
@@ -1011,6 +1019,7 @@ accept event notifications.
 | `ignore`  |no| Events with these mediatypes or actions are not published to the endpoint. |
 
 #### `ignore`
+
 | Parameter | Required | Description                                           |
 |-----------|----------|-------------------------------------------------------|
 | `mediatypes`|no| A list of target media types to ignore. Events with these target media types are not published to the endpoint. |

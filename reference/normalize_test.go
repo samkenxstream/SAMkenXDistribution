@@ -146,7 +146,7 @@ func TestParseRepositoryInfo(t *testing.T) {
 		RemoteName, FamiliarName, FullName, AmbiguousName, Domain string
 	}
 
-	tcases := []tcase{
+	tests := []tcase{
 		{
 			RemoteName:    "fooo/bar",
 			FamiliarName:  "fooo/bar",
@@ -261,35 +261,42 @@ func TestParseRepositoryInfo(t *testing.T) {
 		},
 	}
 
-	for _, tcase := range tcases {
-		refStrings := []string{tcase.FamiliarName, tcase.FullName}
-		if tcase.AmbiguousName != "" {
-			refStrings = append(refStrings, tcase.AmbiguousName)
+	for i, tc := range tests {
+		tc := tc
+		refStrings := []string{tc.FamiliarName, tc.FullName}
+		if tc.AmbiguousName != "" {
+			refStrings = append(refStrings, tc.AmbiguousName)
 		}
 
-		var refs []Named
 		for _, r := range refStrings {
-			named, err := ParseNormalizedNamed(r)
-			if err != nil {
-				t.Fatal(err)
-			}
-			refs = append(refs, named)
-		}
-
-		for _, r := range refs {
-			if expected, actual := tcase.FamiliarName, FamiliarName(r); expected != actual {
-				t.Fatalf("Invalid normalized reference for %q. Expected %q, got %q", r, expected, actual)
-			}
-			if expected, actual := tcase.FullName, r.String(); expected != actual {
-				t.Fatalf("Invalid canonical reference for %q. Expected %q, got %q", r, expected, actual)
-			}
-			if expected, actual := tcase.Domain, Domain(r); expected != actual {
-				t.Fatalf("Invalid domain for %q. Expected %q, got %q", r, expected, actual)
-			}
-			if expected, actual := tcase.RemoteName, Path(r); expected != actual {
-				t.Fatalf("Invalid remoteName for %q. Expected %q, got %q", r, expected, actual)
-			}
-
+			r := r
+			t.Run(strconv.Itoa(i)+"/"+r, func(t *testing.T) {
+				t.Parallel()
+				named, err := ParseNormalizedNamed(r)
+				if err != nil {
+					t.Fatalf("ref=%s: %v", r, err)
+				}
+				t.Run("FamiliarName", func(t *testing.T) {
+					if expected, actual := tc.FamiliarName, FamiliarName(named); expected != actual {
+						t.Errorf("Invalid familiar name for %q. Expected %q, got %q", named, expected, actual)
+					}
+				})
+				t.Run("FullName", func(t *testing.T) {
+					if expected, actual := tc.FullName, named.String(); expected != actual {
+						t.Errorf("Invalid canonical reference for %q. Expected %q, got %q", named, expected, actual)
+					}
+				})
+				t.Run("Domain", func(t *testing.T) {
+					if expected, actual := tc.Domain, Domain(named); expected != actual {
+						t.Errorf("Invalid domain for %q. Expected %q, got %q", named, expected, actual)
+					}
+				})
+				t.Run("RemoteName", func(t *testing.T) {
+					if expected, actual := tc.RemoteName, Path(named); expected != actual {
+						t.Errorf("Invalid remoteName for %q. Expected %q, got %q", named, expected, actual)
+					}
+				})
+			})
 		}
 	}
 }
@@ -361,7 +368,7 @@ func equalReference(r1, r2 Reference) bool {
 
 func TestParseAnyReference(t *testing.T) {
 	t.Parallel()
-	tcases := []struct {
+	tests := []struct {
 		Reference  string
 		Equivalent string
 		Expected   Reference
@@ -426,33 +433,37 @@ func TestParseAnyReference(t *testing.T) {
 		},
 	}
 
-	for _, tcase := range tcases {
-		var ref Reference
-		var err error
-		ref, err = ParseAnyReference(tcase.Reference)
-		if err != nil {
-			t.Fatalf("Error parsing reference %s: %v", tcase.Reference, err)
-		}
-		if ref.String() != tcase.Equivalent {
-			t.Fatalf("Unexpected string: %s, expected %s", ref.String(), tcase.Equivalent)
-		}
-
-		expected := tcase.Expected
-		if expected == nil {
-			expected, err = Parse(tcase.Equivalent)
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.Reference, func(t *testing.T) {
+			t.Parallel()
+			var ref Reference
+			var err error
+			ref, err = ParseAnyReference(tc.Reference)
 			if err != nil {
-				t.Fatalf("Error parsing reference %s: %v", tcase.Equivalent, err)
+				t.Fatalf("Error parsing reference %s: %v", tc.Reference, err)
 			}
-		}
-		if !equalReference(ref, expected) {
-			t.Errorf("Unexpected reference %#v, expected %#v", ref, expected)
-		}
+			if ref.String() != tc.Equivalent {
+				t.Fatalf("Unexpected string: %s, expected %s", ref.String(), tc.Equivalent)
+			}
+
+			expected := tc.Expected
+			if expected == nil {
+				expected, err = Parse(tc.Equivalent)
+				if err != nil {
+					t.Fatalf("Error parsing reference %s: %v", tc.Equivalent, err)
+				}
+			}
+			if !equalReference(ref, expected) {
+				t.Errorf("Unexpected reference %#v, expected %#v", ref, expected)
+			}
+		})
 	}
 }
 
 func TestNormalizedSplitHostname(t *testing.T) {
 	t.Parallel()
-	testcases := []struct {
+	tests := []struct {
 		input  string
 		domain string
 		name   string
@@ -513,23 +524,22 @@ func TestNormalizedSplitHostname(t *testing.T) {
 			name:   "library/foo/bar",
 		},
 	}
-	for _, testcase := range testcases {
-		failf := func(format string, v ...interface{}) {
-			t.Logf(strconv.Quote(testcase.input)+": "+format, v...)
-			t.Fail()
-		}
-
-		named, err := ParseNormalizedNamed(testcase.input)
-		if err != nil {
-			failf("error parsing name: %s", err)
-		}
-		domain, name := SplitHostname(named)
-		if domain != testcase.domain {
-			failf("unexpected domain: got %q, expected %q", domain, testcase.domain)
-		}
-		if name != testcase.name {
-			failf("unexpected name: got %q, expected %q", name, testcase.name)
-		}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.input, func(t *testing.T) {
+			t.Parallel()
+			named, err := ParseNormalizedNamed(tc.input)
+			if err != nil {
+				t.Errorf("error parsing name: %s", err)
+			}
+			domain, name := SplitHostname(named) //nolint:staticcheck // Ignore SA1019: SplitHostname is deprecated.
+			if domain != tc.domain {
+				t.Errorf("unexpected domain: got %q, expected %q", domain, tc.domain)
+			}
+			if name != tc.name {
+				t.Errorf("unexpected name: got %q, expected %q", name, tc.name)
+			}
+		})
 	}
 }
 
@@ -547,7 +557,7 @@ func TestMatchError(t *testing.T) {
 
 func TestMatch(t *testing.T) {
 	t.Parallel()
-	matchCases := []struct {
+	tests := []struct {
 		reference string
 		pattern   string
 		expected  bool
@@ -598,24 +608,28 @@ func TestMatch(t *testing.T) {
 			expected:  true,
 		},
 	}
-	for _, c := range matchCases {
-		named, err := ParseAnyReference(c.reference)
-		if err != nil {
-			t.Fatal(err)
-		}
-		actual, err := FamiliarMatch(c.pattern, named)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if actual != c.expected {
-			t.Fatalf("expected %s match %s to be %v, was %v", c.reference, c.pattern, c.expected, actual)
-		}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.reference, func(t *testing.T) {
+			t.Parallel()
+			named, err := ParseAnyReference(tc.reference)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual, err := FamiliarMatch(tc.pattern, named)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if actual != tc.expected {
+				t.Fatalf("expected %s match %s to be %v, was %v", tc.reference, tc.pattern, tc.expected, actual)
+			}
+		})
 	}
 }
 
 func TestParseDockerRef(t *testing.T) {
 	t.Parallel()
-	testcases := []struct {
+	tests := []struct {
 		name     string
 		input    string
 		expected string
@@ -676,16 +690,17 @@ func TestParseDockerRef(t *testing.T) {
 			expected: "gcr.io/library/busybox@sha256:e6693c20186f837fc393390135d8a598a96a833917917789d63766cab6c59582",
 		},
 	}
-	for _, test := range testcases {
-		t.Run(test.name, func(t *testing.T) {
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			normalized, err := ParseDockerRef(test.input)
+			normalized, err := ParseDockerRef(tc.input)
 			if err != nil {
 				t.Fatal(err)
 			}
 			output := normalized.String()
-			if output != test.expected {
-				t.Fatalf("expected %q to be parsed as %v, got %v", test.input, test.expected, output)
+			if output != tc.expected {
+				t.Fatalf("expected %q to be parsed as %v, got %v", tc.input, tc.expected, output)
 			}
 			_, err = Parse(output)
 			if err != nil {

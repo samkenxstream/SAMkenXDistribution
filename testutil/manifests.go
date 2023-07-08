@@ -7,7 +7,7 @@ import (
 	"github.com/distribution/distribution/v3/context"
 	"github.com/distribution/distribution/v3/manifest"
 	"github.com/distribution/distribution/v3/manifest/manifestlist"
-	"github.com/distribution/distribution/v3/manifest/schema1"
+	"github.com/distribution/distribution/v3/manifest/schema1" //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
 	"github.com/distribution/distribution/v3/manifest/schema2"
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
@@ -44,7 +44,7 @@ func MakeManifestList(blobstatter distribution.BlobStatter, manifestDigests []di
 //
 // Deprecated: Docker Image Manifest v2, Schema 1 is deprecated since 2015.
 // Use Docker Image Manifest v2, Schema 2, or the OCI Image Specification.
-func MakeSchema1Manifest(digests []digest.Digest) (distribution.Manifest, error) {
+func MakeSchema1Manifest(digests []digest.Digest) (*schema1.SignedManifest, error) {
 	mfst := schema1.Manifest{
 		Versioned: manifest.Versioned{
 			SchemaVersion: 1,
@@ -76,9 +76,16 @@ func MakeSchema1Manifest(digests []digest.Digest) (distribution.Manifest, error)
 func MakeSchema2Manifest(repository distribution.Repository, digests []digest.Digest) (distribution.Manifest, error) {
 	ctx := context.Background()
 	blobStore := repository.Blobs(ctx)
-	builder := schema2.NewManifestBuilder(blobStore, schema2.MediaTypeImageConfig, []byte{})
-	for _, d := range digests {
-		builder.AppendReference(distribution.Descriptor{Digest: d})
+
+	var configJSON []byte
+
+	d, err := blobStore.Put(ctx, schema2.MediaTypeImageConfig, configJSON)
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error storing content in blobstore: %v", err)
+	}
+	builder := schema2.NewManifestBuilder(d, configJSON)
+	for _, digest := range digests {
+		builder.AppendReference(distribution.Descriptor{Digest: digest})
 	}
 
 	mfst, err := builder.Build(ctx)

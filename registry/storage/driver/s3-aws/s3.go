@@ -1070,7 +1070,7 @@ func (d *driver) doWalk(parentCtx context.Context, objectCount *int64, path, pre
 		// the most recent skip directory to avoid walking over undesirable files
 		prevSkipDir string
 	)
-	prevDir = prefix + path
+	prevDir = strings.Replace(path, d.s3Path(""), prefix, 1)
 
 	listObjectsInput := &s3.ListObjectsV2Input{
 		Bucket:  aws.String(d.Bucket),
@@ -1425,7 +1425,7 @@ func (w *writer) Close() error {
 	return w.flushPart()
 }
 
-func (w *writer) Cancel() error {
+func (w *writer) Cancel(ctx context.Context) error {
 	if w.closed {
 		return fmt.Errorf("already closed")
 	} else if w.committed {

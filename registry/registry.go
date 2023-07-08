@@ -85,6 +85,16 @@ const defaultLogFormatter = "text"
 // this channel gets notified when process receives signal. It is global to ease unit testing
 var quit = make(chan os.Signal, 1)
 
+// HandlerFunc defines an http middleware
+type HandlerFunc func(config *configuration.Configuration, handler http.Handler) http.Handler
+
+var handlerMiddlewares []HandlerFunc
+
+// RegisterHandler is used to register http middlewares to the registry service
+func RegisterHandler(handlerFunc HandlerFunc) {
+	handlerMiddlewares = append(handlerMiddlewares, handlerFunc)
+}
+
 // ServeCmd is a cobra command for running the registry.
 var ServeCmd = &cobra.Command{
 	Use:   "serve <config>",
@@ -100,29 +110,12 @@ var ServeCmd = &cobra.Command{
 			cmd.Usage()
 			os.Exit(1)
 		}
-
-		if config.HTTP.Debug.Addr != "" {
-			go func(addr string) {
-				logrus.Infof("debug server listening %v", addr)
-				if err := http.ListenAndServe(addr, nil); err != nil {
-					logrus.Fatalf("error listening on debug interface: %v", err)
-				}
-			}(config.HTTP.Debug.Addr)
-		}
-
 		registry, err := NewRegistry(ctx, config)
 		if err != nil {
 			logrus.Fatalln(err)
 		}
 
-		if config.HTTP.Debug.Prometheus.Enabled {
-			path := config.HTTP.Debug.Prometheus.Path
-			if path == "" {
-				path = "/metrics"
-			}
-			logrus.Info("providing prometheus metrics on ", path)
-			http.Handle(path, metrics.Handler())
-		}
+		configureDebugServer(config)
 
 		if err = registry.ListenAndServe(); err != nil {
 			logrus.Fatalln(err)
@@ -163,6 +156,10 @@ func NewRegistry(ctx context.Context, config *configuration.Configuration) (*Reg
 	handler = panicHandler(handler)
 	if !config.Log.AccessLog.Disabled {
 		handler = gorhandlers.CombinedLoggingHandler(os.Stdout, handler)
+	}
+
+	for _, applyHandlerMiddleware := range handlerMiddlewares {
+		handler = applyHandlerMiddleware(config, handler)
 	}
 
 	server := &http.Server{
@@ -238,11 +235,10 @@ func (registry *Registry) ListenAndServe() error {
 		}
 
 		tlsConf := &tls.Config{
-			ClientAuth:               tls.NoClientCert,
-			NextProtos:               nextProtos(config),
-			MinVersion:               tlsMinVersion,
-			PreferServerCipherSuites: true,
-			CipherSuites:             tlsCipherSuites,
+			ClientAuth:   tls.NoClientCert,
+			NextProtos:   nextProtos(config),
+			MinVersion:   tlsMinVersion,
+			CipherSuites: tlsCipherSuites,
 		}
 
 		if config.HTTP.TLS.LetsEncrypt.CacheFile != "" {
@@ -279,7 +275,7 @@ func (registry *Registry) ListenAndServe() error {
 				}
 			}
 
-			for _, subj := range pool.Subjects() {
+			for _, subj := range pool.Subjects() { //nolint:staticcheck // FIXME(thaJeztah): ignore SA1019: ac.(*accessController).rootCerts.Subjects has been deprecated since Go 1.18: if s was returned by SystemCertPool, Subjects will not include the system roots. (staticcheck)
 				dcontext.GetLogger(registry.app).Debugf("CA Subject: %s", string(subj))
 			}
 
@@ -318,6 +314,29 @@ func (registry *Registry) ListenAndServe() error {
 	}
 }
 
+func configureDebugServer(config *configuration.Configuration) {
+	if config.HTTP.Debug.Addr != "" {
+		go func(addr string) {
+			logrus.Infof("debug server listening %v", addr)
+			if err := http.ListenAndServe(addr, nil); err != nil {
+				logrus.Fatalf("error listening on debug interface: %v", err)
+			}
+		}(config.HTTP.Debug.Addr)
+		configurePrometheus(config)
+	}
+}
+
+func configurePrometheus(config *configuration.Configuration) {
+	if config.HTTP.Debug.Prometheus.Enabled {
+		path := config.HTTP.Debug.Prometheus.Path
+		if path == "" {
+			path = "/metrics"
+		}
+		logrus.Info("providing prometheus metrics on ", path)
+		http.Handle(path, metrics.Handler())
+	}
+}
+
 func configureReporting(app *handlers.App) http.Handler {
 	var handler http.Handler = app
 
@@ -345,6 +364,7 @@ func configureReporting(app *handlers.App) http.Handler {
 // configuration.
 func configureLogging(ctx context.Context, config *configuration.Configuration) (context.Context, error) {
 	logrus.SetLevel(logLevel(config.Log.Level))
+	logrus.SetReportCaller(config.Log.ReportCaller)
 
 	formatter := config.Log.Formatter
 	if formatter == "" {
