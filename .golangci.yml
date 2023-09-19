@@ -9,6 +9,8 @@ linters:
     - vet
     - unused
     - misspell
+    - bodyclose
+    - prealloc
   disable:
     - errcheck
 

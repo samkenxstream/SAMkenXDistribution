@@ -3,6 +3,7 @@ package testsuites
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
 	"crypto/sha256"
 	"io"
 	"math/rand"
@@ -656,7 +657,9 @@ func (suite *DriverSuite) TestURLFor(c *check.C) {
 	}
 	c.Assert(err, check.IsNil)
 
-	response, _ = http.Head(url)
+	response, err = http.Head(url)
+	c.Assert(err, check.IsNil)
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, check.Equals, 200)
 	c.Assert(response.ContentLength, check.Equals, int64(32))
 }
@@ -1230,7 +1233,7 @@ func randomFilename(length int64) string {
 var randomBytes = make([]byte, 128<<20)
 
 func init() {
-	_, _ = rand.Read(randomBytes) // always returns len(randomBytes) and nil error
+	_, _ = crand.Read(randomBytes) // always returns len(randomBytes) and nil error
 }
 
 func randomContents(length int64) []byte {

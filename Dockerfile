@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG GO_VERSION=1.19.10
+ARG GO_VERSION=1.20.8
 ARG ALPINE_VERSION=3.18
 ARG XX_VERSION=1.2.1
 
@@ -22,7 +22,7 @@ RUN --mount=target=. \
 FROM base AS build
 ARG TARGETPLATFORM
 ARG LDFLAGS="-s -w"
-ARG BUILDTAGS="include_oss,include_gcs"
+ARG BUILDTAGS="include_gcs"
 RUN --mount=type=bind,target=/src,rw \
     --mount=type=cache,target=/root/.cache/go-build \
     --mount=target=/go/pkg/mod,type=cache \

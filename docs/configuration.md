@@ -139,30 +139,6 @@ storage:
     multipartcopythresholdsize: 33554432
     rootdirectory: /s3/object/name/prefix
     usedualstack: false
-  swift:
-    username: username
-    password: password
-    authurl: https://storage.myprovider.com/auth/v1.0 or https://storage.myprovider.com/v2.0 or https://storage.myprovider.com/v3/auth
-    tenant: tenantname
-    tenantid: tenantid
-    domain: domain name for Openstack Identity v3 API
-    domainid: domain id for Openstack Identity v3 API
-    insecureskipverify: true
-    region: fr
-    container: containername
-    rootdirectory: /swift/object/name/prefix
-  oss:
-    accesskeyid: accesskeyid
-    accesskeysecret: accesskeysecret
-    region: OSS region name
-    endpoint: optional endpoints
-    internal: optional internal endpoint
-    bucket: OSS bucket
-    encrypt: optional enable server-side encryption
-    encryptionkeyid: optional KMS key id for encryption
-    secure: optional ssl setting
-    chunksize: optional size value
-    rootdirectory: optional root directory
   inmemory:  # This driver takes no parameters
   delete:
     enabled: false
@@ -216,15 +192,6 @@ middleware:
     - name: redirect
       options:
         baseurl: https://example.com/
-reporting:
-  bugsnag:
-    apikey: bugsnagapikey
-    releasestage: bugsnagreleasestage
-    endpoint: bugsnagendpoint
-  newrelic:
-    licensekey: newreliclicensekey
-    name: newrelicname
-    verbose: true
 http:
   addr: localhost:5000
   prefix: /my/nested/registry/
@@ -309,10 +276,6 @@ proxy:
   username: [username]
   password: [password]
   ttl: 168h
-compatibility:
-  schema1:
-    signingkeyfile: /etc/registry/key.json
-    enabled: true
 validation:
   manifests:
     urls:
@@ -447,30 +410,6 @@ storage:
     multipartcopymaxconcurrency: 100
     multipartcopythresholdsize: 33554432
     rootdirectory: /s3/object/name/prefix
-  swift:
-    username: username
-    password: password
-    authurl: https://storage.myprovider.com/auth/v1.0 or https://storage.myprovider.com/v2.0 or https://storage.myprovider.com/v3/auth
-    tenant: tenantname
-    tenantid: tenantid
-    domain: domain name for Openstack Identity v3 API
-    domainid: domain id for Openstack Identity v3 API
-    insecureskipverify: true
-    region: fr
-    container: containername
-    rootdirectory: /swift/object/name/prefix
-  oss:
-    accesskeyid: accesskeyid
-    accesskeysecret: accesskeysecret
-    region: OSS region name
-    endpoint: optional endpoints
-    internal: optional internal endpoint
-    bucket: OSS bucket
-    encrypt: optional enable server-side encryption
-    encryptionkeyid: optional KMS key id for encryption
-    secure: optional ssl setting
-    chunksize: optional size valye
-    rootdirectory: optional root directory
   inmemory:
   delete:
     enabled: false
@@ -499,8 +438,6 @@ returns an error. You can choose any of these backend storage drivers:
 | `azure`             | Uses Microsoft Azure Blob Storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/azure.md).                                                                                                               |
 | `gcs`               | Uses Google Cloud Storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/gcs.md).                                                                                                                           |
 | `s3`                | Uses Amazon Simple Storage Service (S3) and compatible Storage Services. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/s3.md).                                                                            |
-| `swift`             | Uses Openstack Swift object storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/swift.md).                                                                                                               |
-| `oss`               | Uses Aliyun OSS for object storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/oss.md).                                                                                                                  |
 
 For testing only, you can use the [`inmemory` storage
 driver](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/inmemory.md).
@@ -744,17 +681,6 @@ Value of `ipfilteredby` can be:
 | `aws`       | IP from AWS goes to S3 directly    |
 | `awsregion` | IP from certain AWS regions goes to S3 directly, use together with `awsregion`. |
 
-### `alicdn`
-
-`alicdn` storage middleware allows the registry to serve layers via a content delivery network provided by Alibaba Cloud. Alicdn requires the OSS storage driver.
-
-| Parameter    | Required | Description                                                             |
-|--------------|----------|-------------------------------------------------------------------------|
-| `baseurl`    | yes      | The `SCHEME://HOST` at which Alicdn is served.                          |
-| `authtype`   | yes      | The URL authentication type for Alicdn, which should be `a`, `b` or `c`. See the [Authentication configuration](https://www.alibabacloud.com/help/doc-detail/85117.htm).|
-| `privatekey` | yes      | The URL authentication key for Alicdn.                                  |
-| `duration`   | no       | An integer and unit for the duration of the Alicdn session. Valid time units are `ns`, `us` (or `µs`), `ms`, `s`, `m`, or `h`.|
-
 ### `redirect`
 
 You can use the `redirect` storage middleware to specify a custom URL to a
@@ -763,44 +689,6 @@ location of a proxy for the layer stored by the S3 storage driver.
 | Parameter | Required | Description                                                                                                 |
 |-----------|----------|-------------------------------------------------------------------------------------------------------------|
 | `baseurl` | yes      | `SCHEME://HOST` at which layers are served. Can also contain port. For example, `https://example.com:5443`. |
-
-## `reporting`
-
-```
-reporting:
-  bugsnag:
-    apikey: bugsnagapikey
-    releasestage: bugsnagreleasestage
-    endpoint: bugsnagendpoint
-  newrelic:
-    licensekey: newreliclicensekey
-    name: newrelicname
-    verbose: true
-```
-
-The `reporting` option is **optional** and configures error and metrics
-reporting tools. At the moment only two services are supported:
-
-- [Bugsnag](#bugsnag)
-- [New Relic](#new-relic)
-
-A valid configuration may contain both.
-
-### `bugsnag`
-
-| Parameter | Required | Description                                           |
-|-----------|----------|-------------------------------------------------------|
-| `apikey`  | yes      | The API Key provided by Bugsnag.                      |
-| `releasestage` | no  | Tracks where the registry is deployed, using a string like `production`, `staging`, or `development`.|
-| `endpoint`| no       | The enterprise Bugsnag endpoint.                      |
-
-### `newrelic`
-
-| Parameter | Required | Description                                           |
-|-----------|----------|-------------------------------------------------------|
-| `licensekey` | yes   | License key provided by New Relic.                    |
-| `name`    | no       | New Relic application name.                           |
-|  `verbose`| no       | Set to `true` to enable New Relic debugging output on `stdout`. |
 
 ## `http`
 
@@ -1219,25 +1107,6 @@ username (such as `batman`) and the password for that username.
 
 > **Note**: These private repositories are stored in the proxy cache's storage.
 > Take appropriate measures to protect access to the proxy cache.
-
-## `compatibility`
-
-```none
-compatibility:
-  schema1:
-    signingkeyfile: /etc/registry/key.json
-    enabled: true
-```
-
-Use the `compatibility` structure to configure handling of older and deprecated
-features. Each subsection defines such a feature with configurable behavior.
-
-### `schema1`
-
-| Parameter | Required | Description                                           |
-|-----------|----------|-------------------------------------------------------|
-| `signingkeyfile` | no | The signing private key used to add signatures to `schema1` manifests. If no signing key is provided, a new ECDSA key is generated when the registry starts. |
-| `enabled` | no | If this is not set to true, `schema1` manifests cannot be pushed. |
 
 ## `validation`
 

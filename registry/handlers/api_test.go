@@ -23,16 +23,14 @@ import (
 	"github.com/distribution/distribution/v3/configuration"
 	"github.com/distribution/distribution/v3/manifest"
 	"github.com/distribution/distribution/v3/manifest/manifestlist"
-	"github.com/distribution/distribution/v3/manifest/schema1" //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
 	"github.com/distribution/distribution/v3/manifest/schema2"
-	"github.com/distribution/distribution/v3/reference"
 	"github.com/distribution/distribution/v3/registry/api/errcode"
 	v2 "github.com/distribution/distribution/v3/registry/api/v2"
 	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	"github.com/distribution/distribution/v3/registry/storage/driver/factory"
 	_ "github.com/distribution/distribution/v3/registry/storage/driver/inmemory"
 	"github.com/distribution/distribution/v3/testutil"
-	"github.com/docker/libtrust"
+	"github.com/distribution/reference"
 	"github.com/gorilla/handlers"
 	"github.com/opencontainers/go-digest"
 )
@@ -341,7 +339,7 @@ func TestCatalogAPI(t *testing.T) {
 	defer resp.Body.Close()
 
 	checkResponse(t, "issuing catalog api check", resp, http.StatusBadRequest)
-	checkBodyHasErrorCodes(t, "invalid number of results requested", resp, v2.ErrorCodePaginationNumberInvalid)
+	checkBodyHasErrorCodes(t, "invalid number of results requested", resp, errcode.ErrorCodePaginationNumberInvalid)
 
 	// -----------------------------------
 	// Case No. 6: request n > maxentries but <= total catalog
@@ -362,7 +360,7 @@ func TestCatalogAPI(t *testing.T) {
 	defer resp.Body.Close()
 
 	checkResponse(t, "issuing catalog api check", resp, http.StatusBadRequest)
-	checkBodyHasErrorCodes(t, "invalid number of results requested", resp, v2.ErrorCodePaginationNumberInvalid)
+	checkBodyHasErrorCodes(t, "invalid number of results requested", resp, errcode.ErrorCodePaginationNumberInvalid)
 
 	// -----------------------------------
 	// Case No. 7: n = 0
@@ -411,7 +409,7 @@ func TestCatalogAPI(t *testing.T) {
 	defer resp.Body.Close()
 
 	checkResponse(t, "issuing catalog api check", resp, http.StatusBadRequest)
-	checkBodyHasErrorCodes(t, "invalid number of results requested", resp, v2.ErrorCodePaginationNumberInvalid)
+	checkBodyHasErrorCodes(t, "invalid number of results requested", resp, errcode.ErrorCodePaginationNumberInvalid)
 
 	// -----------------------------------
 	// Case No. 9: n = 5, max = 5, total catalog = 4
@@ -506,13 +504,13 @@ func TestTagsAPI(t *testing.T) {
 			name:               "negative n query parameter",
 			queryParams:        url.Values{"n": []string{"-1"}},
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBodyErr:    &v2.ErrorCodePaginationNumberInvalid,
+			expectedBodyErr:    &errcode.ErrorCodePaginationNumberInvalid,
 		},
 		{
 			name:               "non integer n query parameter",
 			queryParams:        url.Values{"n": []string{"foo"}},
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBodyErr:    &v2.ErrorCodePaginationNumberInvalid,
+			expectedBodyErr:    &errcode.ErrorCodePaginationNumberInvalid,
 		},
 		{
 			name:               "1st page",
@@ -747,6 +745,7 @@ func TestRelativeURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error doing layer push relative url: %v", err)
 	}
+	defer resp.Body.Close()
 	checkResponse(t, "relativeurl blob upload", resp, http.StatusCreated)
 	u, err = url.Parse(resp.Header.Get("Location"))
 	if err != nil {
@@ -784,6 +783,7 @@ func TestRelativeURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error doing layer push relative url: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "relativeurl blob upload", resp, http.StatusCreated)
 	u, err = url.Parse(resp.Header.Get("Location"))
@@ -813,6 +813,7 @@ func TestBlobDeleteDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting when disabled: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "status of disabled delete", resp, http.StatusMethodNotAllowed)
 }
@@ -837,6 +838,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error fetching non-existent layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching non-existent content", resp, http.StatusNotFound)
 
@@ -846,6 +848,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error checking head on non-existent layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "checking head on non-existent layer", resp, http.StatusNotFound)
 
@@ -858,6 +861,8 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error getting upload status: %v", err)
 	}
+	defer resp.Body.Close()
+
 	checkResponse(t, "status of deleted upload", resp, http.StatusNoContent)
 	checkHeaders(t, resp, http.Header{
 		"Location":           []string{"*"},
@@ -874,7 +879,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error sending delete request: %v", err)
 	}
-
+	defer resp.Body.Close()
 	checkResponse(t, "deleting upload", resp, http.StatusNoContent)
 
 	// A status check should result in 404
@@ -882,6 +887,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error getting upload status: %v", err)
 	}
+	defer resp.Body.Close()
 	checkResponse(t, "status of deleted upload", resp, http.StatusNotFound)
 
 	// -----------------------------------------
@@ -891,9 +897,10 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error doing bad layer push: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "bad layer push", resp, http.StatusBadRequest)
-	checkBodyHasErrorCodes(t, "bad layer push", resp, v2.ErrorCodeDigestInvalid)
+	checkBodyHasErrorCodes(t, "bad layer push", resp, errcode.ErrorCodeDigestInvalid)
 
 	// -----------------------------------------
 	// Do layer push with an empty body and correct digest
@@ -984,7 +991,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error checking head on existing layer: %v", err)
 	}
-
+	defer resp.Body.Close()
 	checkResponse(t, "checking head on existing layer", resp, http.StatusOK)
 	checkHeaders(t, resp, http.Header{
 		"Content-Length":        []string{fmt.Sprint(layerLength)},
@@ -997,7 +1004,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error fetching layer: %v", err)
 	}
-
+	defer resp.Body.Close()
 	checkResponse(t, "fetching layer", resp, http.StatusOK)
 	checkHeaders(t, resp, http.Header{
 		"Content-Length":        []string{fmt.Sprint(layerLength)},
@@ -1019,7 +1026,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error fetching layer: %v", err)
 	}
-
+	defer resp.Body.Close()
 	checkResponse(t, "fetching layer bad digest", resp, http.StatusBadRequest)
 
 	// Cache headers
@@ -1027,7 +1034,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error fetching layer: %v", err)
 	}
-
+	defer resp.Body.Close()
 	checkResponse(t, "fetching layer", resp, http.StatusOK)
 	checkHeaders(t, resp, http.Header{
 		"Content-Length":        []string{fmt.Sprint(layerLength)},
@@ -1048,7 +1055,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
-
+	defer resp.Body.Close()
 	checkResponse(t, "fetching layer with etag", resp, http.StatusNotModified)
 
 	// Non-matching etag, gives 200
@@ -1057,7 +1064,11 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 		t.Fatalf("Error constructing request: %s", err)
 	}
 	req.Header.Set("If-None-Match", "")
-	resp, _ = http.DefaultClient.Do(req)
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Error constructing request: %s", err)
+	}
+	defer resp.Body.Close()
 	checkResponse(t, "fetching layer with invalid etag", resp, http.StatusOK)
 
 	// Missing tests:
@@ -1083,6 +1094,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer", resp, http.StatusAccepted)
 	checkHeaders(t, resp, http.Header{
@@ -1096,6 +1108,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error checking head on existing layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "checking existence of deleted layer", resp, http.StatusNotFound)
 
@@ -1104,6 +1117,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer", resp, http.StatusNotFound)
 
@@ -1114,6 +1128,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error fetching layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer bad digest", resp, http.StatusBadRequest)
 
@@ -1137,6 +1152,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error checking head on existing layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	layerLength, _ := layerFile.Seek(0, io.SeekEnd)
 	checkResponse(t, "checking head on reuploaded layer", resp, http.StatusOK)
@@ -1169,6 +1185,7 @@ func TestDeleteDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer with delete disabled", resp, http.StatusMethodNotAllowed)
 }
@@ -1198,6 +1215,7 @@ func TestDeleteReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer in read-only mode", resp, http.StatusMethodNotAllowed)
 }
@@ -1233,7 +1251,7 @@ func httpDelete(url string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	//	defer resp.Body.Close()
+
 	return resp, err
 }
 
@@ -1245,21 +1263,18 @@ type manifestArgs struct {
 }
 
 func TestManifestAPI(t *testing.T) {
-	schema1Repo, _ := reference.WithName("foo/schema1")
 	schema2Repo, _ := reference.WithName("foo/schema2")
 
 	deleteEnabled := false
 	env1 := newTestEnv(t, deleteEnabled)
 	defer env1.Shutdown()
-	testManifestAPISchema1(t, env1, schema1Repo)
-	schema2Args := testManifestAPISchema2(t, env1, schema2Repo)
+	schema2Args := testManifestAPISchema2(t, env1, schema2Repo, "schema2tag")
 	testManifestAPIManifestList(t, env1, schema2Args)
 
 	deleteEnabled = true
 	env2 := newTestEnv(t, deleteEnabled)
 	defer env2.Shutdown()
-	testManifestAPISchema1(t, env2, schema1Repo)
-	schema2Args = testManifestAPISchema2(t, env2, schema2Repo)
+	schema2Args = testManifestAPISchema2(t, env2, schema2Repo, "schema2tag")
 	testManifestAPIManifestList(t, env2, schema2Args)
 }
 
@@ -1292,6 +1307,7 @@ func TestManifestAPI_DeleteTag(t *testing.T) {
 	msg := "checking tag no longer exists"
 	resp, err = http.Get(u)
 	checkErr(t, err, msg)
+	defer resp.Body.Close()
 	checkResponse(t, msg, resp, http.StatusNotFound)
 
 	digestRef, err := reference.WithDigest(imageName, dgst)
@@ -1303,6 +1319,7 @@ func TestManifestAPI_DeleteTag(t *testing.T) {
 	msg = "checking manifest still exists"
 	resp, err = http.Head(u)
 	checkErr(t, err, msg)
+	defer resp.Body.Close()
 	checkResponse(t, msg, resp, http.StatusOK)
 }
 
@@ -1325,7 +1342,7 @@ func TestManifestAPI_DeleteTag_Unknown(t *testing.T) {
 	defer resp.Body.Close()
 
 	checkResponse(t, msg, resp, http.StatusNotFound)
-	checkBodyHasErrorCodes(t, msg, resp, v2.ErrorCodeManifestUnknown)
+	checkBodyHasErrorCodes(t, msg, resp, errcode.ErrorCodeManifestUnknown)
 }
 
 func TestManifestAPI_DeleteTag_ReadOnly(t *testing.T) {
@@ -1425,7 +1442,7 @@ func TestGetManifestWithStorageError(t *testing.T) {
 	defer env1.Shutdown()
 
 	repo, _ := reference.WithName(repositoryWithManifestNotFound)
-	testManifestWithStorageError(t, env1, repo, http.StatusNotFound, v2.ErrorCodeManifestUnknown)
+	testManifestWithStorageError(t, env1, repo, http.StatusNotFound, errcode.ErrorCodeManifestUnknown)
 
 	repo, _ = reference.WithName(repositoryWithGenericStorageError)
 	testManifestWithStorageError(t, env1, repo, http.StatusInternalServerError, errcode.ErrorCodeUnknown)
@@ -1438,24 +1455,21 @@ func TestGetManifestWithStorageError(t *testing.T) {
 }
 
 func TestManifestDelete(t *testing.T) {
-	schema1Repo, _ := reference.WithName("foo/schema1")
 	schema2Repo, _ := reference.WithName("foo/schema2")
 
 	deleteEnabled := true
 	env := newTestEnv(t, deleteEnabled)
 	defer env.Shutdown()
-	schema1Args := testManifestAPISchema1(t, env, schema1Repo)
-	testManifestDelete(t, env, schema1Args)
-	schema2Args := testManifestAPISchema2(t, env, schema2Repo)
+	schema2Args := testManifestAPISchema2(t, env, schema2Repo, "schema2tag")
 	testManifestDelete(t, env, schema2Args)
 }
 
 func TestManifestDeleteDisabled(t *testing.T) {
-	schema1Repo, _ := reference.WithName("foo/schema1")
+	schema2Repo, _ := reference.WithName("foo/schema2")
 	deleteEnabled := false
 	env := newTestEnv(t, deleteEnabled)
 	defer env.Shutdown()
-	testManifestDeleteDisabled(t, env, schema1Repo)
+	testManifestDeleteDisabled(t, env, schema2Repo)
 }
 
 func testManifestDeleteDisabled(t *testing.T, env *testEnv, imageName reference.Named) {
@@ -1493,324 +1507,7 @@ func testManifestWithStorageError(t *testing.T, env *testEnv, imageName referenc
 	checkBodyHasErrorCodes(t, "getting non-existent manifest", resp, expectedErrorCode)
 }
 
-func testManifestAPISchema1(t *testing.T, env *testEnv, imageName reference.Named) manifestArgs {
-	tag := "thetag"
-	args := manifestArgs{imageName: imageName}
-
-	tagRef, _ := reference.WithTag(imageName, tag)
-	manifestURL, err := env.builder.BuildManifestURL(tagRef)
-	if err != nil {
-		t.Fatalf("unexpected error getting manifest url: %v", err)
-	}
-
-	// -----------------------------
-	// Attempt to fetch the manifest
-	resp, err := http.Get(manifestURL)
-	if err != nil {
-		t.Fatalf("unexpected error getting manifest: %v", err)
-	}
-	defer resp.Body.Close()
-
-	checkResponse(t, "getting non-existent manifest", resp, http.StatusNotFound)
-	checkBodyHasErrorCodes(t, "getting non-existent manifest", resp, v2.ErrorCodeManifestUnknown)
-
-	tagsURL, err := env.builder.BuildTagsURL(imageName)
-	if err != nil {
-		t.Fatalf("unexpected error building tags url: %v", err)
-	}
-
-	resp, err = http.Get(tagsURL)
-	if err != nil {
-		t.Fatalf("unexpected error getting unknown tags: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Check that we get an unknown repository error when asking for tags
-	checkResponse(t, "getting unknown manifest tags", resp, http.StatusNotFound)
-	checkBodyHasErrorCodes(t, "getting unknown manifest tags", resp, v2.ErrorCodeNameUnknown)
-
-	// --------------------------------
-	// Attempt to push unsigned manifest with missing layers
-	unsignedManifest := &schema1.Manifest{ //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-		Versioned: manifest.Versioned{
-			SchemaVersion: 1,
-		},
-		Name: imageName.Name(),
-		Tag:  tag,
-		FSLayers: []schema1.FSLayer{ //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-			{
-				BlobSum: "asdf",
-			},
-			{
-				BlobSum: "qwer",
-			},
-		},
-		History: []schema1.History{ //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-			{
-				V1Compatibility: "",
-			},
-			{
-				V1Compatibility: "",
-			},
-		},
-	}
-
-	resp = putManifest(t, "putting unsigned manifest", manifestURL, "", unsignedManifest)
-	defer resp.Body.Close()
-	checkResponse(t, "putting unsigned manifest", resp, http.StatusBadRequest)
-	_, p, counts := checkBodyHasErrorCodes(t, "putting unsigned manifest", resp, v2.ErrorCodeManifestInvalid)
-
-	expectedCounts := map[errcode.ErrorCode]int{
-		v2.ErrorCodeManifestInvalid: 1,
-	}
-
-	if !reflect.DeepEqual(counts, expectedCounts) {
-		t.Fatalf("unexpected number of error codes encountered: %v\n!=\n%v\n---\n%s", counts, expectedCounts, string(p))
-	}
-
-	// sign the manifest and still get some interesting errors.
-	sm, err := schema1.Sign(unsignedManifest, env.pk) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if err != nil {
-		t.Fatalf("error signing manifest: %v", err)
-	}
-
-	resp = putManifest(t, "putting signed manifest with errors", manifestURL, "", sm)
-	defer resp.Body.Close()
-	checkResponse(t, "putting signed manifest with errors", resp, http.StatusBadRequest)
-	_, p, counts = checkBodyHasErrorCodes(t, "putting signed manifest with errors", resp,
-		v2.ErrorCodeManifestBlobUnknown, v2.ErrorCodeDigestInvalid)
-
-	expectedCounts = map[errcode.ErrorCode]int{
-		v2.ErrorCodeManifestBlobUnknown: 2,
-		v2.ErrorCodeDigestInvalid:       2,
-	}
-
-	if !reflect.DeepEqual(counts, expectedCounts) {
-		t.Fatalf("unexpected number of error codes encountered: %v\n!=\n%v\n---\n%s", counts, expectedCounts, string(p))
-	}
-
-	// TODO(stevvooe): Add a test case where we take a mostly valid registry,
-	// tamper with the content and ensure that we get an unverified manifest
-	// error.
-
-	// Push 2 random layers
-	expectedLayers := make(map[digest.Digest]io.ReadSeeker)
-
-	for i := range unsignedManifest.FSLayers {
-		rs, dgst, err := testutil.CreateRandomTarFile()
-		if err != nil {
-			t.Fatalf("error creating random layer %d: %v", i, err)
-		}
-
-		expectedLayers[dgst] = rs
-		unsignedManifest.FSLayers[i].BlobSum = dgst
-
-		uploadURLBase, _ := startPushLayer(t, env, imageName)
-		pushLayer(t, env.builder, imageName, dgst, uploadURLBase, rs)
-	}
-
-	// -------------------
-	// Push the signed manifest with all layers pushed.
-	signedManifest, err := schema1.Sign(unsignedManifest, env.pk) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if err != nil {
-		t.Fatalf("unexpected error signing manifest: %v", err)
-	}
-
-	dgst := digest.FromBytes(signedManifest.Canonical)
-	args.manifest = signedManifest
-	args.dgst = dgst
-
-	digestRef, _ := reference.WithDigest(imageName, dgst)
-	manifestDigestURL, err := env.builder.BuildManifestURL(digestRef)
-	checkErr(t, err, "building manifest url")
-
-	resp = putManifest(t, "putting signed manifest no error", manifestURL, "", signedManifest)
-	checkResponse(t, "putting signed manifest no error", resp, http.StatusCreated)
-	checkHeaders(t, resp, http.Header{
-		"Location":              []string{manifestDigestURL},
-		"Docker-Content-Digest": []string{dgst.String()},
-	})
-
-	// --------------------
-	// Push by digest -- should get same result
-	resp = putManifest(t, "putting signed manifest", manifestDigestURL, "", signedManifest)
-	checkResponse(t, "putting signed manifest", resp, http.StatusCreated)
-	checkHeaders(t, resp, http.Header{
-		"Location":              []string{manifestDigestURL},
-		"Docker-Content-Digest": []string{dgst.String()},
-	})
-
-	// ------------------
-	// Fetch by tag name
-	resp, err = http.Get(manifestURL)
-	if err != nil {
-		t.Fatalf("unexpected error fetching manifest: %v", err)
-	}
-	defer resp.Body.Close()
-
-	checkResponse(t, "fetching uploaded manifest", resp, http.StatusOK)
-	checkHeaders(t, resp, http.Header{
-		"Docker-Content-Digest": []string{dgst.String()},
-		"ETag":                  []string{fmt.Sprintf(`"%s"`, dgst)},
-	})
-
-	var fetchedManifest schema1.SignedManifest //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	dec := json.NewDecoder(resp.Body)
-
-	if err := dec.Decode(&fetchedManifest); err != nil {
-		t.Fatalf("error decoding fetched manifest: %v", err)
-	}
-
-	if !bytes.Equal(fetchedManifest.Canonical, signedManifest.Canonical) {
-		t.Fatalf("manifests do not match")
-	}
-
-	// ---------------
-	// Fetch by digest
-	resp, err = http.Get(manifestDigestURL)
-	checkErr(t, err, "fetching manifest by digest")
-	defer resp.Body.Close()
-
-	checkResponse(t, "fetching uploaded manifest", resp, http.StatusOK)
-	checkHeaders(t, resp, http.Header{
-		"Docker-Content-Digest": []string{dgst.String()},
-		"ETag":                  []string{fmt.Sprintf(`"%s"`, dgst)},
-	})
-
-	var fetchedManifestByDigest schema1.SignedManifest //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	dec = json.NewDecoder(resp.Body)
-	if err := dec.Decode(&fetchedManifestByDigest); err != nil {
-		t.Fatalf("error decoding fetched manifest: %v", err)
-	}
-
-	if !bytes.Equal(fetchedManifestByDigest.Canonical, signedManifest.Canonical) {
-		t.Fatalf("manifests do not match")
-	}
-
-	// check signature was roundtripped
-	signatures, err := fetchedManifestByDigest.Signatures() //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(signatures) != 1 {
-		t.Fatalf("expected 1 signature from manifest, got: %d", len(signatures))
-	}
-
-	// Re-sign, push and pull the same digest
-	sm2, err := schema1.Sign(&fetchedManifestByDigest.Manifest, env.pk) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Re-push with a few different Content-Types. The official schema1
-	// content type should work, as should application/json with/without a
-	// charset.
-	resp = putManifest(t, "re-putting signed manifest", manifestDigestURL, schema1.MediaTypeSignedManifest, sm2) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	checkResponse(t, "re-putting signed manifest", resp, http.StatusCreated)
-	resp = putManifest(t, "re-putting signed manifest", manifestDigestURL, "application/json", sm2)
-	checkResponse(t, "re-putting signed manifest", resp, http.StatusCreated)
-	resp = putManifest(t, "re-putting signed manifest", manifestDigestURL, "application/json", sm2)
-	checkResponse(t, "re-putting signed manifest", resp, http.StatusCreated)
-
-	resp, err = http.Get(manifestDigestURL)
-	checkErr(t, err, "re-fetching manifest by digest")
-	defer resp.Body.Close()
-
-	checkResponse(t, "re-fetching uploaded manifest", resp, http.StatusOK)
-	checkHeaders(t, resp, http.Header{
-		"Docker-Content-Digest": []string{dgst.String()},
-		"ETag":                  []string{fmt.Sprintf(`"%s"`, dgst)},
-	})
-
-	dec = json.NewDecoder(resp.Body)
-	if err := dec.Decode(&fetchedManifestByDigest); err != nil {
-		t.Fatalf("error decoding fetched manifest: %v", err)
-	}
-
-	// check only 1 signature is returned
-	signatures, err = fetchedManifestByDigest.Signatures() //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(signatures) != 1 {
-		t.Fatalf("expected 2 signature from manifest, got: %d", len(signatures))
-	}
-
-	// Get by name with etag, gives 304
-	etag := resp.Header.Get("Etag")
-	req, err := http.NewRequest(http.MethodGet, manifestURL, nil)
-	if err != nil {
-		t.Fatalf("Error constructing request: %s", err)
-	}
-	req.Header.Set("If-None-Match", etag)
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("Error constructing request: %s", err)
-	}
-
-	checkResponse(t, "fetching manifest by name with etag", resp, http.StatusNotModified)
-
-	// Get by digest with etag, gives 304
-	req, err = http.NewRequest(http.MethodGet, manifestDigestURL, nil)
-	if err != nil {
-		t.Fatalf("Error constructing request: %s", err)
-	}
-	req.Header.Set("If-None-Match", etag)
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("Error constructing request: %s", err)
-	}
-
-	checkResponse(t, "fetching manifest by dgst with etag", resp, http.StatusNotModified)
-
-	// Ensure that the tag is listed.
-	resp, err = http.Get(tagsURL)
-	if err != nil {
-		t.Fatalf("unexpected error getting unknown tags: %v", err)
-	}
-	defer resp.Body.Close()
-
-	checkResponse(t, "getting tags", resp, http.StatusOK)
-	dec = json.NewDecoder(resp.Body)
-
-	var tagsResponse tagsAPIResponse
-
-	if err := dec.Decode(&tagsResponse); err != nil {
-		t.Fatalf("unexpected error decoding error response: %v", err)
-	}
-
-	if tagsResponse.Name != imageName.Name() {
-		t.Fatalf("tags name should match image name: %v != %v", tagsResponse.Name, imageName.Name())
-	}
-
-	if len(tagsResponse.Tags) != 1 {
-		t.Fatalf("expected some tags in response: %v", tagsResponse.Tags)
-	}
-
-	if tagsResponse.Tags[0] != tag {
-		t.Fatalf("tag not as expected: %q != %q", tagsResponse.Tags[0], tag)
-	}
-
-	// Attempt to put a manifest with mismatching FSLayer and History array cardinalities
-
-	unsignedManifest.History = append(unsignedManifest.History, schema1.History{ //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-		V1Compatibility: "",
-	})
-	invalidSigned, err := schema1.Sign(unsignedManifest, env.pk) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if err != nil {
-		t.Fatalf("error signing manifest")
-	}
-
-	resp = putManifest(t, "putting invalid signed manifest", manifestDigestURL, "", invalidSigned)
-	checkResponse(t, "putting invalid signed manifest", resp, http.StatusBadRequest)
-
-	return args
-}
-
-func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named) manifestArgs {
-	tag := "schema2tag"
+func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named, tag string) manifestArgs {
 	args := manifestArgs{
 		imageName: imageName,
 		mediaType: schema2.MediaTypeManifest,
@@ -1831,7 +1528,7 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 	defer resp.Body.Close()
 
 	checkResponse(t, "getting non-existent manifest", resp, http.StatusNotFound)
-	checkBodyHasErrorCodes(t, "getting non-existent manifest", resp, v2.ErrorCodeManifestUnknown)
+	checkBodyHasErrorCodes(t, "getting non-existent manifest", resp, errcode.ErrorCodeManifestUnknown)
 
 	tagsURL, err := env.builder.BuildTagsURL(imageName)
 	if err != nil {
@@ -1846,7 +1543,7 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 
 	// Check that we get an unknown repository error when asking for tags
 	checkResponse(t, "getting unknown manifest tags", resp, http.StatusNotFound)
-	checkBodyHasErrorCodes(t, "getting unknown manifest tags", resp, v2.ErrorCodeNameUnknown)
+	checkBodyHasErrorCodes(t, "getting unknown manifest tags", resp, errcode.ErrorCodeNameUnknown)
 
 	// --------------------------------
 	// Attempt to push manifest with missing config and missing layers
@@ -1877,10 +1574,10 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 	resp = putManifest(t, "putting missing config manifest", manifestURL, schema2.MediaTypeManifest, manifest)
 	defer resp.Body.Close()
 	checkResponse(t, "putting missing config manifest", resp, http.StatusBadRequest)
-	_, p, counts := checkBodyHasErrorCodes(t, "putting missing config manifest", resp, v2.ErrorCodeManifestBlobUnknown)
+	_, p, counts := checkBodyHasErrorCodes(t, "putting missing config manifest", resp, errcode.ErrorCodeManifestBlobUnknown)
 
 	expectedCounts := map[errcode.ErrorCode]int{
-		v2.ErrorCodeManifestBlobUnknown: 3,
+		errcode.ErrorCodeManifestBlobUnknown: 3,
 	}
 
 	if !reflect.DeepEqual(counts, expectedCounts) {
@@ -1919,10 +1616,10 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 	resp = putManifest(t, "putting missing layer manifest", manifestURL, schema2.MediaTypeManifest, manifest)
 	defer resp.Body.Close()
 	checkResponse(t, "putting missing layer manifest", resp, http.StatusBadRequest)
-	_, p, counts = checkBodyHasErrorCodes(t, "getting unknown manifest tags", resp, v2.ErrorCodeManifestBlobUnknown)
+	_, p, counts = checkBodyHasErrorCodes(t, "getting unknown manifest tags", resp, errcode.ErrorCodeManifestBlobUnknown)
 
 	expectedCounts = map[errcode.ErrorCode]int{
-		v2.ErrorCodeManifestBlobUnknown: 2,
+		errcode.ErrorCodeManifestBlobUnknown: 2,
 	}
 
 	if !reflect.DeepEqual(counts, expectedCounts) {
@@ -1964,6 +1661,7 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 	checkErr(t, err, "building manifest url")
 
 	resp = putManifest(t, "putting manifest no error", manifestURL, schema2.MediaTypeManifest, manifest)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest no error", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -1973,6 +1671,7 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 	// --------------------
 	// Push by digest -- should get same result
 	resp = putManifest(t, "putting manifest by digest", manifestDigestURL, schema2.MediaTypeManifest, manifest)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest by digest", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -2057,6 +1756,7 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching manifest by name with etag", resp, http.StatusNotModified)
 
@@ -2070,6 +1770,7 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching manifest by dgst with etag", resp, http.StatusNotModified)
 
@@ -2100,63 +1801,6 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 	if tagsResponse.Tags[0] != tag {
 		t.Fatalf("tag not as expected: %q != %q", tagsResponse.Tags[0], tag)
 	}
-
-	// ------------------
-	// Fetch as a schema1 manifest
-	resp, err = http.Get(manifestURL)
-	if err != nil {
-		t.Fatalf("unexpected error fetching manifest as schema1: %v", err)
-	}
-	defer resp.Body.Close()
-
-	manifestBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("error reading response body: %v", err)
-	}
-
-	checkResponse(t, "fetching uploaded manifest as schema1", resp, http.StatusOK)
-
-	m, desc, err := distribution.UnmarshalManifest(schema1.MediaTypeManifest, manifestBytes) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if err != nil {
-		t.Fatalf("unexpected error unmarshalling manifest: %v", err)
-	}
-
-	fetchedSchema1Manifest, ok := m.(*schema1.SignedManifest) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if !ok {
-		t.Fatalf("expecting schema1 manifest")
-	}
-
-	checkHeaders(t, resp, http.Header{
-		"Docker-Content-Digest": []string{desc.Digest.String()},
-		"ETag":                  []string{fmt.Sprintf(`"%s"`, desc.Digest)},
-	})
-
-	if fetchedSchema1Manifest.Manifest.SchemaVersion != 1 {
-		t.Fatal("wrong schema version")
-	}
-	if fetchedSchema1Manifest.Architecture != "amd64" {
-		t.Fatal("wrong architecture")
-	}
-	if fetchedSchema1Manifest.Name != imageName.Name() {
-		t.Fatal("wrong image name")
-	}
-	if fetchedSchema1Manifest.Tag != tag {
-		t.Fatal("wrong tag")
-	}
-	if len(fetchedSchema1Manifest.FSLayers) != 2 {
-		t.Fatal("wrong number of FSLayers")
-	}
-	for i := range manifest.Layers {
-		if fetchedSchema1Manifest.FSLayers[i].BlobSum != manifest.Layers[len(manifest.Layers)-i-1].Digest {
-			t.Fatalf("blob digest mismatch in schema1 manifest for layer %d", i)
-		}
-	}
-	if len(fetchedSchema1Manifest.History) != 2 {
-		t.Fatal("wrong number of History entries")
-	}
-
-	// Don't check V1Compatibility fields because we're using randomly-generated
-	// layers.
 
 	return args
 }
@@ -2196,10 +1840,10 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	resp := putManifest(t, "putting missing manifest manifestlist", manifestURL, manifestlist.MediaTypeManifestList, manifestList)
 	defer resp.Body.Close()
 	checkResponse(t, "putting missing manifest manifestlist", resp, http.StatusBadRequest)
-	_, p, counts := checkBodyHasErrorCodes(t, "putting missing manifest manifestlist", resp, v2.ErrorCodeManifestBlobUnknown)
+	_, p, counts := checkBodyHasErrorCodes(t, "putting missing manifest manifestlist", resp, errcode.ErrorCodeManifestBlobUnknown)
 
 	expectedCounts := map[errcode.ErrorCode]int{
-		v2.ErrorCodeManifestBlobUnknown: 1,
+		errcode.ErrorCodeManifestBlobUnknown: 1,
 	}
 
 	if !reflect.DeepEqual(counts, expectedCounts) {
@@ -2224,6 +1868,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	checkErr(t, err, "building manifest url")
 
 	resp = putManifest(t, "putting manifest list no error", manifestURL, manifestlist.MediaTypeManifestList, deserializedManifestList)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest list no error", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -2233,6 +1878,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	// --------------------
 	// Push by digest -- should get same result
 	resp = putManifest(t, "putting manifest list by digest", manifestDigestURL, manifestlist.MediaTypeManifestList, deserializedManifestList)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest list by digest", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -2246,7 +1892,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 		t.Fatalf("Error constructing request: %s", err)
 	}
 	// multiple headers in mixed list format to ensure we parse correctly server-side
-	req.Header.Set("Accept", fmt.Sprintf(` %s ; q=0.8 , %s ; q=0.5 `, manifestlist.MediaTypeManifestList, schema1.MediaTypeSignedManifest)) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
+	req.Header.Set("Accept", fmt.Sprintf(` %s ; q=0.8 `, manifestlist.MediaTypeManifestList))
 	req.Header.Add("Accept", schema2.MediaTypeManifest)
 	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
@@ -2319,6 +1965,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching manifest by name with etag", resp, http.StatusNotModified)
 
@@ -2332,66 +1979,9 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
-
-	checkResponse(t, "fetching manifest by dgst with etag", resp, http.StatusNotModified)
-
-	// ------------------
-	// Fetch as a schema1 manifest
-	resp, err = http.Get(manifestURL)
-	if err != nil {
-		t.Fatalf("unexpected error fetching manifest list as schema1: %v", err)
-	}
 	defer resp.Body.Close()
 
-	manifestBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("error reading response body: %v", err)
-	}
-
-	checkResponse(t, "fetching uploaded manifest list as schema1", resp, http.StatusOK)
-
-	m, desc, err := distribution.UnmarshalManifest(schema1.MediaTypeManifest, manifestBytes) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if err != nil {
-		t.Fatalf("unexpected error unmarshalling manifest: %v", err)
-	}
-
-	fetchedSchema1Manifest, ok := m.(*schema1.SignedManifest) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if !ok {
-		t.Fatalf("expecting schema1 manifest")
-	}
-
-	checkHeaders(t, resp, http.Header{
-		"Docker-Content-Digest": []string{desc.Digest.String()},
-		"ETag":                  []string{fmt.Sprintf(`"%s"`, desc.Digest)},
-	})
-
-	if fetchedSchema1Manifest.Manifest.SchemaVersion != 1 {
-		t.Fatal("wrong schema version")
-	}
-	if fetchedSchema1Manifest.Architecture != "amd64" {
-		t.Fatal("wrong architecture")
-	}
-	if fetchedSchema1Manifest.Name != imageName.Name() {
-		t.Fatal("wrong image name")
-	}
-	if fetchedSchema1Manifest.Tag != tag {
-		t.Fatal("wrong tag")
-	}
-	if len(fetchedSchema1Manifest.FSLayers) != 2 {
-		t.Fatal("wrong number of FSLayers")
-	}
-	layers := args.manifest.(*schema2.DeserializedManifest).Layers
-	for i := range layers {
-		if fetchedSchema1Manifest.FSLayers[i].BlobSum != layers[len(layers)-i-1].Digest {
-			t.Fatalf("blob digest mismatch in schema1 manifest for layer %d", i)
-		}
-	}
-	if len(fetchedSchema1Manifest.History) != 2 {
-		t.Fatal("wrong number of History entries")
-	}
-
-	// Don't check V1Compatibility fields because we're using randomly-generated
-	// layers.
+	checkResponse(t, "fetching manifest by dgst with etag", resp, http.StatusNotModified)
 }
 
 func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
@@ -2405,6 +1995,7 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 	// Delete by digest
 	resp, err := httpDelete(manifestDigestURL)
 	checkErr(t, err, "deleting manifest by digest")
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting manifest", resp, http.StatusAccepted)
 	checkHeaders(t, resp, http.Header{
@@ -2423,12 +2014,14 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 	// Delete already deleted manifest by digest
 	resp, err = httpDelete(manifestDigestURL)
 	checkErr(t, err, "re-deleting manifest by digest")
+	defer resp.Body.Close()
 
 	checkResponse(t, "re-deleting manifest", resp, http.StatusNotFound)
 
 	// --------------------
 	// Re-upload manifest by digest
 	resp = putManifest(t, "putting manifest", manifestDigestURL, args.mediaType, manifest)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -2455,6 +2048,7 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 
 	resp, err = httpDelete(unknownManifestDigestURL)
 	checkErr(t, err, "delting unknown manifest by digest")
+	defer resp.Body.Close()
 	checkResponse(t, "fetching deleted manifest", resp, http.StatusNotFound)
 
 	// --------------------
@@ -2463,6 +2057,7 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 	tagRef, _ := reference.WithTag(imageName, tag)
 	manifestTagURL, _ := env.builder.BuildManifestURL(tagRef)
 	resp = putManifest(t, "putting manifest by tag", manifestTagURL, args.mediaType, manifest)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest by tag", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -2503,6 +2098,7 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 	// Delete by digest
 	resp, err = httpDelete(manifestDigestURL)
 	checkErr(t, err, "deleting manifest by digest")
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting manifest with tag", resp, http.StatusAccepted)
 	checkHeaders(t, resp, http.Header{
@@ -2531,7 +2127,6 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 }
 
 type testEnv struct {
-	pk      libtrust.PrivateKey
 	ctx     context.Context
 	config  configuration.Configuration
 	app     *App
@@ -2556,7 +2151,6 @@ func newTestEnvMirror(t *testing.T, deleteEnabled bool) *testEnv {
 			MaxEntries: 5,
 		},
 	}
-	config.Compatibility.Schema1.Enabled = true //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
 
 	return newTestEnvWithConfig(t, &config)
 }
@@ -2575,7 +2169,6 @@ func newTestEnv(t *testing.T, deleteEnabled bool) *testEnv {
 		},
 	}
 
-	config.Compatibility.Schema1.Enabled = true //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
 	config.HTTP.Headers = headerConfig
 
 	return newTestEnvWithConfig(t, &config)
@@ -2591,13 +2184,7 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 		t.Fatalf("error creating url builder: %v", err)
 	}
 
-	pk, err := libtrust.GenerateECP256PrivateKey()
-	if err != nil {
-		t.Fatalf("unexpected error generating private key: %v", err)
-	}
-
 	return &testEnv{
-		pk:      pk,
 		ctx:     ctx,
 		config:  *config,
 		app:     app,
@@ -2615,12 +2202,6 @@ func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *htt
 	var body []byte
 
 	switch m := v.(type) {
-	case *schema1.SignedManifest: //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-		_, pl, err := m.Payload() //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-		if err != nil {
-			t.Fatalf("error getting payload: %v", err)
-		}
-		body = pl
 	case *manifestlist.DeserializedManifestList:
 		_, pl, err := m.Payload()
 		if err != nil {
@@ -2862,7 +2443,6 @@ func checkResponse(t *testing.T, msg string, resp *http.Response, expectedStatus
 	if resp.StatusCode != 405 && !reflect.DeepEqual(resp.Header["X-Content-Type-Options"], []string{"nosniff"}) {
 		t.Logf("missing or incorrect header X-Content-Type-Options %s", msg)
 		maybeDumpResponse(t, resp)
-
 		t.FailNow()
 	}
 }
@@ -2968,61 +2548,90 @@ func createRepository(env *testEnv, t *testing.T, imageName string, tag string) 
 		t.Fatalf("unable to parse reference: %v", err)
 	}
 
-	unsignedManifest := &schema1.Manifest{ //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
+	tagRef, _ := reference.WithTag(imageNameRef, tag)
+	manifestURL, err := env.builder.BuildManifestURL(tagRef)
+	if err != nil {
+		t.Fatalf("unexpected error getting manifest url: %v", err)
+	}
+
+	manifest := &schema2.Manifest{
 		Versioned: manifest.Versioned{
-			SchemaVersion: 1,
+			SchemaVersion: 2,
+			MediaType:     schema2.MediaTypeManifest,
 		},
-		Name: imageName,
-		Tag:  tag,
-		FSLayers: []schema1.FSLayer{ //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-			{
-				BlobSum: "asdf",
-			},
+		Config: distribution.Descriptor{
+			Digest:    "sha256:1a9ec845ee94c202b2d5da74a24f0ed2058318bfa9879fa541efaecba272e86b",
+			Size:      3253,
+			MediaType: schema2.MediaTypeImageConfig,
 		},
-		History: []schema1.History{ //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
+		Layers: []distribution.Descriptor{
 			{
-				V1Compatibility: "",
+				Digest:    "sha256:463434349086340864309863409683460843608348608934092322395278926a",
+				Size:      6323,
+				MediaType: schema2.MediaTypeLayer,
 			},
 		},
 	}
 
-	// Push 2 random layers
-	expectedLayers := make(map[digest.Digest]io.ReadSeeker)
+	// Push a config, and reference it in the manifest
+	sampleConfig := []byte(`{
+		"architecture": "amd64",
+		"history": [
+		  {
+		    "created": "2015-10-31T22:22:54.690851953Z",
+		    "created_by": "/bin/sh -c #(nop) ADD file:a3bc1e842b69636f9df5256c49c5374fb4eef1e281fe3f282c65fb853ee171c5 in /"
+		  },
+		],
+		"rootfs": {
+		  "diff_ids": [
+		    "sha256:c6f988f4874bb0add23a778f753c65efe992244e148a1d2ec2a8b664fb66bbd1",
+		  ],
+		  "type": "layers"
+		}
+	}`)
+	sampleConfigDigest := digest.FromBytes(sampleConfig)
 
-	for i := range unsignedManifest.FSLayers {
+	uploadURLBase, _ := startPushLayer(t, env, imageNameRef)
+	pushLayer(t, env.builder, imageNameRef, sampleConfigDigest, uploadURLBase, bytes.NewReader(sampleConfig))
+	manifest.Config.Digest = sampleConfigDigest
+	manifest.Config.Size = int64(len(sampleConfig))
+
+	// Push random layers
+
+	for i := range manifest.Layers {
 		rs, dgst, err := testutil.CreateRandomTarFile()
 		if err != nil {
 			t.Fatalf("error creating random layer %d: %v", i, err)
 		}
+		manifest.Layers[i].Digest = dgst
 
-		expectedLayers[dgst] = rs
-		unsignedManifest.FSLayers[i].BlobSum = dgst
 		uploadURLBase, _ := startPushLayer(t, env, imageNameRef)
 		pushLayer(t, env.builder, imageNameRef, dgst, uploadURLBase, rs)
 	}
 
-	signedManifest, err := schema1.Sign(unsignedManifest, env.pk) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
+	// -------------------
+	// Push the manifest with all layers pushed.
+	deserializedManifest, err := schema2.FromStruct(*manifest)
 	if err != nil {
-		t.Fatalf("unexpected error signing manifest: %v", err)
+		t.Fatalf("could not create DeserializedManifest: %v", err)
 	}
-
-	dgst := digest.FromBytes(signedManifest.Canonical)
-
-	// Create this repository by tag to ensure the tag mapping is made in the registry
-	tagRef, _ := reference.WithTag(imageNameRef, tag)
-	manifestDigestURL, err := env.builder.BuildManifestURL(tagRef)
+	_, canonical, err := deserializedManifest.Payload()
+	if err != nil {
+		t.Fatalf("could not get manifest payload: %v", err)
+	}
+	dgst := digest.FromBytes(canonical)
+	digestRef, _ := reference.WithDigest(imageNameRef, dgst)
+	manifestDigestURL, err := env.builder.BuildManifestURL(digestRef)
 	checkErr(t, err, "building manifest url")
 
-	digestRef, _ := reference.WithDigest(imageNameRef, dgst)
-	location, err := env.builder.BuildManifestURL(digestRef)
-	checkErr(t, err, "building location URL")
-
-	resp := putManifest(t, "putting signed manifest", manifestDigestURL, "", signedManifest)
-	checkResponse(t, "putting signed manifest", resp, http.StatusCreated)
+	resp := putManifest(t, "putting manifest no error", manifestURL, schema2.MediaTypeManifest, manifest)
+	defer resp.Body.Close()
+	checkResponse(t, "putting manifest no error", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
-		"Location":              []string{location},
+		"Location":              []string{manifestDigestURL},
 		"Docker-Content-Digest": []string{dgst.String()},
 	})
+
 	return dgst
 }
 
@@ -3042,27 +2651,41 @@ func TestRegistryAsCacheMutationAPIs(t *testing.T) {
 	}
 
 	// Manifest upload
-	m := &schema1.Manifest{ //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
+	manifest := &schema2.Manifest{
 		Versioned: manifest.Versioned{
-			SchemaVersion: 1,
+			SchemaVersion: 2,
+			MediaType:     schema2.MediaTypeManifest,
 		},
-		Name:     imageName.Name(),
-		Tag:      tag,
-		FSLayers: []schema1.FSLayer{}, //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-		History:  []schema1.History{}, //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
+		Config: distribution.Descriptor{
+			Digest:    "sha256:1a9ec845ee94c202b2d5da74a24f0ed2058318bfa9879fa541efaecba272e86b",
+			Size:      3253,
+			MediaType: schema2.MediaTypeImageConfig,
+		},
+		Layers: []distribution.Descriptor{
+			{
+				Digest:    "sha256:463434349086340864309863409683460843608348608934092322395278926a",
+				Size:      6323,
+				MediaType: schema2.MediaTypeLayer,
+			},
+			{
+				Digest:    "sha256:630923423623623423352523525237238023652897356239852383652aaaaaaa",
+				Size:      6863,
+				MediaType: schema2.MediaTypeLayer,
+			},
+		},
 	}
 
-	sm, err := schema1.Sign(m, env.pk) //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
-	if err != nil {
-		t.Fatalf("error signing manifest: %v", err)
-	}
-
-	resp := putManifest(t, "putting unsigned manifest", manifestURL, "", sm)
-	checkResponse(t, "putting signed manifest to cache", resp, errcode.ErrorCodeUnsupported.Descriptor().HTTPStatusCode)
+	resp := putManifest(t, "putting missing config manifest", manifestURL, schema2.MediaTypeManifest, manifest)
+	defer resp.Body.Close()
+	checkResponse(t, "putting missing config manifest", resp, errcode.ErrorCodeUnsupported.Descriptor().HTTPStatusCode)
 
 	// Manifest Delete
-	resp, _ = httpDelete(manifestURL)
-	checkResponse(t, "deleting signed manifest from cache", resp, errcode.ErrorCodeUnsupported.Descriptor().HTTPStatusCode)
+	resp, err = httpDelete(manifestURL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+	checkResponse(t, "deleting config manifest from cache", resp, errcode.ErrorCodeUnsupported.Descriptor().HTTPStatusCode)
 
 	// Blob upload initialization
 	layerUploadURL, err := env.builder.BuildBlobUploadURL(imageName)
@@ -3081,7 +2704,11 @@ func TestRegistryAsCacheMutationAPIs(t *testing.T) {
 	// Blob Delete
 	ref, _ := reference.WithDigest(imageName, digestSha256EmptyTar)
 	blobURL, _ := env.builder.BuildBlobURL(ref)
-	resp, _ = httpDelete(blobURL)
+	resp, err = httpDelete(blobURL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
 	checkResponse(t, "deleting blob from cache", resp, errcode.ErrorCodeUnsupported.Descriptor().HTTPStatusCode)
 }
 
@@ -3094,7 +2721,6 @@ func TestProxyManifestGetByTag(t *testing.T) {
 			}},
 		},
 	}
-	truthConfig.Compatibility.Schema1.Enabled = true //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
 	truthConfig.HTTP.Headers = headerConfig
 
 	imageName, _ := reference.WithName("foo/bar")
@@ -3113,7 +2739,6 @@ func TestProxyManifestGetByTag(t *testing.T) {
 			RemoteURL: truthEnv.server.URL,
 		},
 	}
-	proxyConfig.Compatibility.Schema1.Enabled = true //nolint:staticcheck // Ignore SA1019: "github.com/distribution/distribution/v3/manifest/schema1" is deprecated, as it's used for backward compatibility.
 	proxyConfig.HTTP.Headers = headerConfig
 
 	proxyEnv := newTestEnvWithConfig(t, &proxyConfig)

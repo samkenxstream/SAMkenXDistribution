@@ -50,11 +50,6 @@ var configStruct = Configuration{
 			"service": "silly",
 		},
 	},
-	Reporting: Reporting{
-		Bugsnag: BugsnagReporting{
-			APIKey: "BugsnagApiKey",
-		},
-	},
 	Notifications: Notifications{
 		Endpoints: []Endpoint{
 			{
@@ -131,6 +126,24 @@ var configStruct = Configuration{
 			Disabled: false,
 		},
 	},
+	Redis: Redis{
+		Addr:     "localhost:6379",
+		Username: "alice",
+		Password: "123456",
+		DB:       1,
+		Pool: struct {
+			MaxIdle     int           `yaml:"maxidle,omitempty"`
+			MaxActive   int           `yaml:"maxactive,omitempty"`
+			IdleTimeout time.Duration `yaml:"idletimeout,omitempty"`
+		}{
+			MaxIdle:     16,
+			MaxActive:   64,
+			IdleTimeout: time.Second * 300,
+		},
+		DialTimeout:  time.Millisecond * 10,
+		ReadTimeout:  time.Millisecond * 10,
+		WriteTimeout: time.Millisecond * 10,
+	},
 }
 
 // configYamlV0_1 is a Version 0.1 yaml document representing configStruct
@@ -167,14 +180,23 @@ notifications:
            - application/octet-stream
         actions:
            - pull
-reporting:
-  bugsnag:
-    apikey: BugsnagApiKey
 http:
   clientcas:
     - /path/to/ca.pem
   headers:
     X-Content-Type-Options: [nosniff]
+redis:
+  addr: localhost:6379
+  username: alice
+  password: 123456
+  db: 1
+  pool:
+    maxidle: 16
+    maxactive: 64
+    idletimeout: 300s
+  dialtimeout: 10ms
+  readtimeout: 10ms
+  writetimeout: 10ms
 `
 
 // inmemoryConfigYamlV0_1 is a Version 0.1 yaml document specifying an inmemory
@@ -240,8 +262,8 @@ func (suite *ConfigSuite) TestParseSimple(c *check.C) {
 // a string can be parsed into a Configuration struct with no storage parameters
 func (suite *ConfigSuite) TestParseInmemory(c *check.C) {
 	suite.expectedConfig.Storage = Storage{"inmemory": Parameters{}}
-	suite.expectedConfig.Reporting = Reporting{}
 	suite.expectedConfig.Log.Fields = nil
+	suite.expectedConfig.Redis = Redis{}
 
 	config, err := Parse(bytes.NewReader([]byte(inmemoryConfigYamlV0_1)))
 	c.Assert(err, check.IsNil)
@@ -259,9 +281,9 @@ func (suite *ConfigSuite) TestParseIncomplete(c *check.C) {
 	suite.expectedConfig.Log.Fields = nil
 	suite.expectedConfig.Storage = Storage{"filesystem": Parameters{"rootdirectory": "/tmp/testroot"}}
 	suite.expectedConfig.Auth = Auth{"silly": Parameters{"realm": "silly"}}
-	suite.expectedConfig.Reporting = Reporting{}
 	suite.expectedConfig.Notifications = Notifications{}
 	suite.expectedConfig.HTTP.Headers = nil
+	suite.expectedConfig.Redis = Redis{}
 
 	// Note: this also tests that REGISTRY_STORAGE and
 	// REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY can be used together
@@ -368,24 +390,6 @@ func (suite *ConfigSuite) TestParseInvalidLoglevel(c *check.C) {
 	c.Assert(err, check.NotNil)
 }
 
-// TestParseWithDifferentEnvReporting validates that environment variables
-// properly override reporting parameters
-func (suite *ConfigSuite) TestParseWithDifferentEnvReporting(c *check.C) {
-	suite.expectedConfig.Reporting.Bugsnag.APIKey = "anotherBugsnagApiKey"
-	suite.expectedConfig.Reporting.Bugsnag.Endpoint = "localhost:8080"
-	suite.expectedConfig.Reporting.NewRelic.LicenseKey = "NewRelicLicenseKey"
-	suite.expectedConfig.Reporting.NewRelic.Name = "some NewRelic NAME"
-
-	os.Setenv("REGISTRY_REPORTING_BUGSNAG_APIKEY", "anotherBugsnagApiKey")
-	os.Setenv("REGISTRY_REPORTING_BUGSNAG_ENDPOINT", "localhost:8080")
-	os.Setenv("REGISTRY_REPORTING_NEWRELIC_LICENSEKEY", "NewRelicLicenseKey")
-	os.Setenv("REGISTRY_REPORTING_NEWRELIC_NAME", "some NewRelic NAME")
-
-	config, err := Parse(bytes.NewReader([]byte(configYamlV0_1)))
-	c.Assert(err, check.IsNil)
-	c.Assert(config, check.DeepEquals, suite.expectedConfig)
-}
-
 // TestParseInvalidVersion validates that the parser will fail to parse a newer configuration
 // version than the CurrentVersion
 func (suite *ConfigSuite) TestParseInvalidVersion(c *check.C) {
@@ -399,14 +403,8 @@ func (suite *ConfigSuite) TestParseInvalidVersion(c *check.C) {
 // TestParseExtraneousVars validates that environment variables referring to
 // nonexistent variables don't cause side effects.
 func (suite *ConfigSuite) TestParseExtraneousVars(c *check.C) {
-	suite.expectedConfig.Reporting.Bugsnag.Endpoint = "localhost:8080"
-
-	// A valid environment variable
-	os.Setenv("REGISTRY_REPORTING_BUGSNAG_ENDPOINT", "localhost:8080")
 
 	// Environment variables which shouldn't set config items
-	os.Setenv("registry_REPORTING_NEWRELIC_LICENSEKEY", "NewRelicLicenseKey")
-	os.Setenv("REPORTING_NEWRELIC_NAME", "some NewRelic NAME")
 	os.Setenv("REGISTRY_DUCKS", "quack")
 	os.Setenv("REGISTRY_REPORTING_ASDF", "ghjk")
 
@@ -537,10 +535,6 @@ func copyConfig(config Configuration) *Configuration {
 	for k, v := range config.Storage.Parameters() {
 		configCopy.Storage.setParameter(k, v)
 	}
-	configCopy.Reporting = Reporting{
-		Bugsnag:  BugsnagReporting{config.Reporting.Bugsnag.APIKey, config.Reporting.Bugsnag.ReleaseStage, config.Reporting.Bugsnag.Endpoint},
-		NewRelic: NewRelicReporting{config.Reporting.NewRelic.LicenseKey, config.Reporting.NewRelic.Name, config.Reporting.NewRelic.Verbose},
-	}
 
 	configCopy.Auth = Auth{config.Auth.Type(): Parameters{}}
 	for k, v := range config.Auth.Parameters() {
@@ -554,6 +548,8 @@ func copyConfig(config Configuration) *Configuration {
 	for k, v := range config.HTTP.Headers {
 		configCopy.HTTP.Headers[k] = v
 	}
+
+	configCopy.Redis = config.Redis
 
 	return configCopy
 }

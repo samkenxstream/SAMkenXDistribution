@@ -10,9 +10,9 @@ import (
 
 	"github.com/distribution/distribution/v3"
 	dcontext "github.com/distribution/distribution/v3/context"
-	"github.com/distribution/distribution/v3/reference"
 	"github.com/distribution/distribution/v3/registry/storage/driver"
 	"github.com/distribution/distribution/v3/uuid"
+	"github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -123,9 +123,9 @@ func WithMountFrom(ref reference.Canonical) distribution.BlobCreateOption {
 	})
 }
 
-// Writer begins a blob write session, returning a handle.
+// Create begins a blob write session, returning a handle.
 func (lbs *linkedBlobStore) Create(ctx context.Context, options ...distribution.BlobCreateOption) (distribution.BlobWriter, error) {
-	dcontext.GetLogger(ctx).Debug("(*linkedBlobStore).Writer")
+	dcontext.GetLogger(ctx).Debug("(*linkedBlobStore).Create")
 
 	var opts distribution.CreateOptions
 

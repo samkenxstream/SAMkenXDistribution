@@ -91,13 +91,11 @@ github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/options
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/shared
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/version
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/public
-# github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d
-## explicit
-github.com/Shopify/logrus-bugsnag
-# github.com/aws/aws-sdk-go v1.43.16
+# github.com/aws/aws-sdk-go v1.44.325
 ## explicit; go 1.11
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/arn
+github.com/aws/aws-sdk-go/aws/auth/bearer
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
 github.com/aws/aws-sdk-go/aws/client
@@ -144,38 +142,27 @@ github.com/aws/aws-sdk-go/service/cloudfront/sign
 github.com/aws/aws-sdk-go/service/s3
 github.com/aws/aws-sdk-go/service/sso
 github.com/aws/aws-sdk-go/service/sso/ssoiface
+github.com/aws/aws-sdk-go/service/ssooidc
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
-# github.com/bitly/go-simplejson v0.5.0
-## explicit
 # github.com/bshuster-repo/logrus-logstash-hook v1.0.0
 ## explicit
 github.com/bshuster-repo/logrus-logstash-hook
-# github.com/bugsnag/bugsnag-go v0.0.0-20141110184014-b1d153021fcd
-## explicit
-github.com/bugsnag/bugsnag-go
-github.com/bugsnag/bugsnag-go/errors
-# github.com/bugsnag/osext v0.0.0-20130617224835-0dd3f918b21b
-## explicit
-github.com/bugsnag/osext
-# github.com/bugsnag/panicwrap v0.0.0-20151223152923-e2c28503fcd0
-## explicit
-github.com/bugsnag/panicwrap
 # github.com/cespare/xxhash/v2 v2.2.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/cyphar/filepath-securejoin v0.2.3
+# github.com/cyphar/filepath-securejoin v0.2.4
 ## explicit; go 1.13
 github.com/cyphar/filepath-securejoin
-# github.com/denverdino/aliyungo v0.0.0-20190125010748-a747050bb1ba
+# github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
 ## explicit
-github.com/denverdino/aliyungo/cdn/auth
-github.com/denverdino/aliyungo/common
-github.com/denverdino/aliyungo/oss
-github.com/denverdino/aliyungo/util
+github.com/dgryski/go-rendezvous
+# github.com/distribution/reference v0.5.0
+## explicit; go 1.20
+github.com/distribution/reference
 # github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c
 ## explicit
 github.com/docker/go-events
@@ -188,6 +175,13 @@ github.com/docker/libtrust
 # github.com/felixge/httpsnoop v1.0.1
 ## explicit; go 1.13
 github.com/felixge/httpsnoop
+# github.com/go-logr/logr v1.2.4
+## explicit; go 1.16
+github.com/go-logr/logr
+github.com/go-logr/logr/funcr
+# github.com/go-logr/stdr v1.2.2
+## explicit; go 1.16
+github.com/go-logr/stdr
 # github.com/golang-jwt/jwt/v4 v4.5.0
 ## explicit; go 1.16
 github.com/golang-jwt/jwt/v4
@@ -202,9 +196,6 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/gomodule/redigo v1.8.2
-## explicit; go 1.14
-github.com/gomodule/redigo/redis
 # github.com/google/go-cmp v0.5.9
 ## explicit; go 1.13
 github.com/google/go-cmp/cmp
@@ -231,10 +222,13 @@ github.com/gorilla/handlers
 # github.com/gorilla/mux v1.8.0
 ## explicit; go 1.12
 github.com/gorilla/mux
-# github.com/hashicorp/golang-lru v0.5.4
-## explicit; go 1.12
-github.com/hashicorp/golang-lru
-github.com/hashicorp/golang-lru/simplelru
+# github.com/hashicorp/golang-lru/arc/v2 v2.0.5
+## explicit; go 1.18
+github.com/hashicorp/golang-lru/arc/v2
+# github.com/hashicorp/golang-lru/v2 v2.0.5
+## explicit; go 1.18
+github.com/hashicorp/golang-lru/v2/internal
+github.com/hashicorp/golang-lru/v2/simplelru
 # github.com/inconshreveable/mousetrap v1.0.1
 ## explicit; go 1.18
 github.com/inconshreveable/mousetrap
@@ -266,12 +260,6 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mitchellh/mapstructure v1.1.2
 ## explicit
 github.com/mitchellh/mapstructure
-# github.com/mitchellh/osext v0.0.0-20151018003038-5e2d6d41470f
-## explicit
-# github.com/ncw/swift v1.0.47
-## explicit
-github.com/ncw/swift
-github.com/ncw/swift/swifttest
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
@@ -301,6 +289,22 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
+# github.com/redis/go-redis/extra/rediscmd/v9 v9.0.5
+## explicit; go 1.15
+github.com/redis/go-redis/extra/rediscmd/v9
+# github.com/redis/go-redis/extra/redisotel/v9 v9.0.5
+## explicit; go 1.19
+github.com/redis/go-redis/extra/redisotel/v9
+# github.com/redis/go-redis/v9 v9.1.0
+## explicit; go 1.18
+github.com/redis/go-redis/v9
+github.com/redis/go-redis/v9/internal
+github.com/redis/go-redis/v9/internal/hashtag
+github.com/redis/go-redis/v9/internal/hscan
+github.com/redis/go-redis/v9/internal/pool
+github.com/redis/go-redis/v9/internal/proto
+github.com/redis/go-redis/v9/internal/rand
+github.com/redis/go-redis/v9/internal/util
 # github.com/sirupsen/logrus v1.8.1
 ## explicit; go 1.13
 github.com/sirupsen/logrus
@@ -310,15 +314,6 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/yvasiyarov/go-metrics v0.0.0-20140926110328-57bccd1ccd43
-## explicit
-github.com/yvasiyarov/go-metrics
-# github.com/yvasiyarov/gorelic v0.0.0-20141212073537-a9bba5b9ab50
-## explicit
-github.com/yvasiyarov/gorelic
-# github.com/yvasiyarov/newrelic_platform_go v0.0.0-20140908184405-b21fdbd4370f
-## explicit
-github.com/yvasiyarov/newrelic_platform_go
 # go.opencensus.io v0.24.0
 ## explicit; go 1.13
 go.opencensus.io
@@ -338,6 +333,27 @@ go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/propagation
 go.opencensus.io/trace/tracestate
+# go.opentelemetry.io/otel v1.16.0
+## explicit; go 1.19
+go.opentelemetry.io/otel
+go.opentelemetry.io/otel/attribute
+go.opentelemetry.io/otel/baggage
+go.opentelemetry.io/otel/codes
+go.opentelemetry.io/otel/internal
+go.opentelemetry.io/otel/internal/attribute
+go.opentelemetry.io/otel/internal/baggage
+go.opentelemetry.io/otel/internal/global
+go.opentelemetry.io/otel/propagation
+go.opentelemetry.io/otel/semconv/internal
+go.opentelemetry.io/otel/semconv/v1.10.0
+go.opentelemetry.io/otel/semconv/v1.12.0
+# go.opentelemetry.io/otel/metric v1.16.0
+## explicit; go 1.19
+go.opentelemetry.io/otel/metric
+go.opentelemetry.io/otel/metric/embedded
+# go.opentelemetry.io/otel/trace v1.16.0
+## explicit; go 1.19
+go.opentelemetry.io/otel/trace
 # golang.org/x/crypto v0.7.0
 ## explicit; go 1.17
 golang.org/x/crypto/acme
@@ -364,7 +380,7 @@ golang.org/x/oauth2/google/internal/externalaccount
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sys v0.6.0
+# golang.org/x/sys v0.8.0
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
